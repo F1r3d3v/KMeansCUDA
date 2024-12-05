@@ -11,6 +11,8 @@
 
 namespace fs = std::filesystem;
 
+constexpr int MAX_ITER = 100;
+
 void printUsage(const char* argv0) {
 	const char* help =
 		"Usage: %s data_format computation_method input_file output_file\n\n"
@@ -55,11 +57,13 @@ int main(int argc, char** argv) {
 	printf("Output file: %s\n", outputFile.filename().string().c_str());
 	printf("\n");
 
-	// Load data
+	std::chrono::steady_clock::time_point start, end;
 	int numPoints = 0, dimensions = 0, numClusters = 0;
 	float* data = nullptr;
-	auto start = std::chrono::high_resolution_clock::now();
+
+	// Load data
 	printf("Loading data from file...\n");
+	start = std::chrono::high_resolution_clock::now();
 	if (!strcmp(dataFormat, "txt"))
 	{
 		if (!loadFileTxt(inputFile.string().c_str(), &numPoints, &dimensions, &numClusters, &data))
@@ -76,42 +80,66 @@ int main(int argc, char** argv) {
 			return 1;
 		}
 	}
-	auto end = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> duration = end - start;
-	printf("Data loaded: %d points, %d dimensions, %d clusters\n\n", numPoints, dimensions, numClusters);
-	printf("Data loading time: %f seconds\n", duration.count());
+	end = std::chrono::high_resolution_clock::now();
+	printf("Data loaded: %d points, %d dimensions, %d clusters\n", numPoints, dimensions, numClusters);
+	printf("Data loading time: %lld ms\n\n", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
 	// Allocate memory for centroids and assignments
 	float* centroids = (float*)malloc(numClusters * dimensions * sizeof(float));
 	int* assignments = (int*)malloc(numPoints * sizeof(int));
+	if (!centroids || !assignments)
+	{
+		fprintf(stderr, "Memory allocation failed.\n");
+		return 1;
+	}
+	memset(assignments, 0, numPoints * sizeof(int));
+
+	// Empty CUDA call to initialize CUDA context
+	if (!strcmp(computationMethod, "gpu1") || !strcmp(computationMethod, "gpu2"))
+	{
+		printf("Initializing CUDA context...\n\n");
+		EmptyCUDACall();
+	}
 
 	// Run K-means
-	start = std::chrono::high_resolution_clock::now();
 	printf("Starting K-means computation...\n");
+	start = std::chrono::high_resolution_clock::now();
+	cudaError_t cudaStatus = cudaSuccess;
 	if (!strcmp(computationMethod, "cpu"))
 	{
-		KMeansCPU(data, numPoints, dimensions, numClusters, 1000, centroids, assignments);
+		KMeansCPU(data, numPoints, dimensions, numClusters, MAX_ITER, centroids, assignments);
+	}
+	else if (!strcmp(computationMethod, "gpu1"))
+	{
+		cudaStatus = KMeansGPU1(data, numPoints, dimensions, numClusters, MAX_ITER, centroids, assignments);
+	}
+	else if (!strcmp(computationMethod, "gpu2"))
+	{
+		cudaStatus = KMeansGPU2(data, numPoints, dimensions, numClusters, MAX_ITER, centroids, assignments);
 	}
 	end = std::chrono::high_resolution_clock::now();
-	duration = end - start;
+	if (cudaStatus != cudaSuccess)
+	{
+		fprintf(stderr, "K-means computation failed\n");
+		return 1;
+	}
 	printf("K-means computation completed\n");
-	printf("Computation time: %f seconds\n\n", duration.count());
+	printf("Computation time: %lld ms\n\n", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
 	// Create output directory if it does not exist
 	fs::create_directories(outputFile.parent_path());
 
 	// Write results
-	start = std::chrono::high_resolution_clock::now();
 	printf("Writing results to file...\n");
+	start = std::chrono::high_resolution_clock::now();
 	if (!writeFileTxt(outputFile.string().c_str(), centroids, numClusters, dimensions, assignments, numPoints))
 	{
 		fprintf(stderr, "Failed to write results to file: %s\n", outputFile.string().c_str());
 		return 1;
 	}
 	end = std::chrono::high_resolution_clock::now();
-	duration = end - start;
 	printf("Results written to file\n");
-	printf("Writing time: %f seconds\n\n", duration.count());
+	printf("Writing time: %lld ms\n\n", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
 	// Cleanup
 	free(data);

@@ -20,7 +20,9 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\cuda_helper.cuh" />
     <ClInclude Include="include\kmeans.h" />
+    <ClInclude Include="include\reduce.cuh" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\points_5mln_4d_5c.dat">
@@ -89,7 +91,7 @@
       <CompileOut>$(SolutionDir)obj\$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>xcopy /y /i /d $(ProjectDir)data  $(OutDir)data\</Command>
+      <Command>xcopy /y /i /d $(ProjectDir)data  $(OutDir)data\ &amp; xcopy /y /i /d $(ProjectDir)scripts  $(OutDir)\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -114,7 +116,7 @@
       <CompileOut>$(SolutionDir)obj\$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>xcopy /y /i /d $(ProjectDir)data  $(OutDir)data\</Command>
+      <Command>xcopy /y /i /d $(ProjectDir)data  $(OutDir)data\ &amp; xcopy /y /i /d $(ProjectDir)scripts  $(OutDir)\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

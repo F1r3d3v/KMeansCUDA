@@ -4,16 +4,7 @@
 #include <cfloat>
 #include <cstdio>
 
-float calculateDistance(const float* point1, const float* point2, int dimensions)
-{
-	float sum = 0.0f;
-	for (int d = 0; d < dimensions; ++d)
-	{
-		float diff = point1[d] - point2[d];
-		sum += diff * diff;
-	}
-	return sum;
-}
+float DistanceSquaredHost(float* points, int numPoints, int pointId, float* centroids, int numClusters, int clusterId, int dimensions);
 
 void KMeansCPU(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, int* assignments)
 {
@@ -22,7 +13,7 @@ void KMeansCPU(float* data, int numPoints, int dimensions, int numClusters, int 
 	// Set initial centroids to the first k points
 	for (int c = 0; c < numClusters; ++c)
 		for (int d = 0; d < dimensions; ++d)
-			centroids[c * dimensions + d] = data[c * dimensions + d];
+			centroids[d * numClusters + c] = data[d * numPoints + c];
 
 	for (int iter = 0; iter < maxIterations; ++iter)
 	{
@@ -31,12 +22,12 @@ void KMeansCPU(float* data, int numPoints, int dimensions, int numClusters, int 
 		// Assign points to the closest cluster
 		for (int i = 0; i < numPoints; ++i)
 		{
-			int closestCluster = -1;
+			int closestCluster = 0;
 			float minDistance = FLT_MAX;
 
 			for (int c = 0; c < numClusters; ++c)
 			{
-				float dist = calculateDistance(&data[i * dimensions], &centroids[c * dimensions], dimensions);
+				float dist = DistanceSquaredHost(data, numPoints, i, centroids, numClusters, c, dimensions);
 				if (dist < minDistance)
 				{
 					minDistance = dist;
@@ -61,6 +52,11 @@ void KMeansCPU(float* data, int numPoints, int dimensions, int numClusters, int 
 		// Calculate new centroids
 		float* centroidSums = (float*)calloc(numClusters * dimensions, sizeof(float));
 		int* pointsPerCluster = (int*)calloc(numClusters, sizeof(int));
+		if (!centroidSums || !pointsPerCluster)
+		{
+			fprintf(stderr, "Memory allocation failed.\n");
+			return;
+		}
 
 		for (int i = 0; i < numPoints; ++i)
 		{
@@ -68,7 +64,7 @@ void KMeansCPU(float* data, int numPoints, int dimensions, int numClusters, int 
 			pointsPerCluster[cluster]++;
 			for (int d = 0; d < dimensions; ++d)
 			{
-				centroidSums[cluster * dimensions + d] += data[i * dimensions + d];
+				centroidSums[d * numClusters + cluster] += data[d * numPoints + i];
 			}
 		}
 
@@ -77,7 +73,7 @@ void KMeansCPU(float* data, int numPoints, int dimensions, int numClusters, int 
 			if (pointsPerCluster[c] == 0) continue;
 			for (int d = 0; d < dimensions; ++d)
 			{
-				centroids[c * dimensions + d] = centroidSums[c * dimensions + d] / pointsPerCluster[c];
+				centroids[d * numClusters + c] = centroidSums[d * numClusters + c] / pointsPerCluster[c];
 			}
 		}
 

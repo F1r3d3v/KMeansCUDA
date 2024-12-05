@@ -3,8 +3,10 @@
 
 #include "cuda_runtime.h"
 
-cudaError_t addWithCuda(int* c, const int* a, const int* b, unsigned int size);
 void KMeansCPU(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, int* assignments);
+cudaError_t KMeansGPU1(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, int* assignments);
+cudaError_t KMeansGPU2(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, int* assignments);
+void EmptyCUDACall();
 
 #endif // !KMEANS_H
 

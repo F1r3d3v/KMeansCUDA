@@ -32,7 +32,7 @@ int loadFileTxt(const char* filename, int* numPoints, int* dimensions, int* numC
 	{
 		for (int d = 0; d < *dimensions; ++d)
 		{
-			if (fscanf(file, "%f", &((*data)[i * (*dimensions) + d])) != 1)
+			if (fscanf(file, "%f", &((*data)[d * (*numPoints) + i])) != 1)
 			{
 				fprintf(stderr, "Failed to read data point from file: %s\n", filename);
 				free(*data);
@@ -69,9 +69,24 @@ int loadFileBin(const char* filename, int* numPoints, int* dimensions, int* numC
 	}
 
 	// Load data points
-	fread(*data, sizeof(float), (*numPoints) * (*dimensions), file);
+	float *tmp = (float*)malloc((*dimensions) * sizeof(float));
+	if (tmp == NULL)
+	{
+		fprintf(stderr, "Memory allocation failed.\n");
+		fclose(file);
+		free(*data);
+		return 0;
+	}
+
+	for (int i = 0; i < (*numPoints); ++i)
+	{
+		fread(tmp, sizeof(float), (*dimensions), file);
+		for (int d = 0; d < (*dimensions); ++d)
+			(*data)[d * (*numPoints) + i] = tmp[d];
+	}
 
 	fclose(file);
+	free(tmp);
 	return 1;
 }
 
@@ -88,7 +103,7 @@ int writeFileTxt(const char* filename, float* centroids, int numClusters, int di
 	for (int i = 0; i < numClusters; ++i)
 	{
 		for (int d = 0; d < dimensions; ++d)
-			fprintf(file, "  %8.4f", centroids[i * dimensions + d]);
+			fprintf(file, "  %8.4f", centroids[d * numClusters + i]);
 
 		fprintf(file, "\n");
 	}
