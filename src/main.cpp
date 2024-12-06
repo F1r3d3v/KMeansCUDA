@@ -193,11 +193,14 @@ int main(int argc, char** argv) {
 		free(buffer);
 	}
 
-	cudaStatus = cudaDeviceReset();
-	if (cudaStatus != cudaSuccess)
+	if (!strcmp(computationMethod, "gpu1") || !strcmp(computationMethod, "gpu2"))
 	{
-		fprintf(stderr, "cudaDeviceReset failed!\n");
-		return 1;
+		cudaStatus = cudaDeviceReset();
+		if (cudaStatus != cudaSuccess)
+		{
+			fprintf(stderr, "cudaDeviceReset failed!\n");
+			return 1;
+		}
 	}
 
 	// Cleanup

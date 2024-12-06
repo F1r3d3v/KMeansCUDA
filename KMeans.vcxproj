@@ -87,7 +87,7 @@
       <AdditionalOptions>-Xcudafe="--diag_suppress=esa_on_defaulted_function_ignored" -std=c++17 -Xcompiler "/std:c++17" --expt-relaxed-constexpr %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>xcopy /y /i /d $(ProjectDir)data  $(OutDir)data\ &amp; xcopy /y /i /d $(ProjectDir)scripts  $(OutDir)\</Command>
+      <Command>xcopy /y /i /d "$(ProjectDir)data"  "$(OutDir)data\" &amp; xcopy /y /i /d "$(ProjectDir)scripts"  "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -113,7 +113,7 @@
       <AdditionalOptions>-Xcudafe="--diag_suppress=esa_on_defaulted_function_ignored" -std=c++17 -Xcompiler "/std:c++17" --expt-relaxed-constexpr %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>xcopy /y /i /d $(ProjectDir)data  $(OutDir)data\ &amp; xcopy /y /i /d $(ProjectDir)scripts  $(OutDir)\</Command>
+      <Command>xcopy /y /i /d "$(ProjectDir)data"  "$(OutDir)data\" &amp; xcopy /y /i /d "$(ProjectDir)scripts"  "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
