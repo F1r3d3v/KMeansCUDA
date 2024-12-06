@@ -91,13 +91,13 @@ int main(int argc, char** argv) {
 
 	// Allocate memory for centroids and assignments
 	float* centroids = (float*)malloc(numClusters * dimensions * sizeof(float));
-	int* assignments = (int*)malloc(numPoints * sizeof(int));
+	char* assignments = (char*)malloc(numPoints * sizeof(char));
 	if (!centroids || !assignments)
 	{
 		fprintf(stderr, "Memory allocation failed.\n");
 		return 1;
 	}
-	memset(assignments, 0, numPoints * sizeof(int));
+	memset(assignments, 0, numPoints * sizeof(char));
 
 	// Empty CUDA call to initialize CUDA context
 	if (!strcmp(computationMethod, "gpu1") || !strcmp(computationMethod, "gpu2"))

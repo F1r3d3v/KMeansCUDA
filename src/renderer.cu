@@ -11,7 +11,7 @@
 #include <math.h>
 
 __device__
-glm::ivec3 GetColor(int assignement)
+glm::i8vec3 GetColor(char assignment)
 {
 	glm::ivec3 col[] = {
 		{255, 0, 0}, // Red
@@ -36,8 +36,8 @@ glm::ivec3 GetColor(int assignement)
 		{0, 64, 64} // Dark Cyan
 	};
 
-	if (assignement >= 0 && assignement < 20)
-		return col[assignement];
+	if (assignment >= 0 && assignment < 20)
+		return col[assignment];
 
 	return { 0, 0, 0 };
 }
@@ -93,7 +93,7 @@ void ApplyScaleKernel(float* data, int numPoints, int height, int margin, glm::v
 }
 
 __global__
-void RenderBufferKernel(float* data, int* assignement, int numPoints, unsigned char* buffer, float* zbuffer, int width, int height, int pointSize)
+void RenderBufferKernel(float* data, char* assignments, int numPoints, unsigned char* buffer, float* zbuffer, int width, int height, int pointSize)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	int stride = blockDim.x * gridDim.x;
@@ -117,7 +117,7 @@ void RenderBufferKernel(float* data, int* assignement, int numPoints, unsigned c
 		// Draw point
 		if (x >= 0 && x < width && y >= 0 && y < height)
 		{
-			glm::ivec3 color = GetColor(assignement[tid]);
+			glm::i8vec3 color = GetColor(assignments[tid]);
 
 			for (int i = x - pointSize / 2; i < x + pointSize / 2; ++i)
 			{
@@ -139,7 +139,7 @@ void RenderBufferKernel(float* data, int* assignement, int numPoints, unsigned c
 }
 
 __host__
-void BresenhamLine(unsigned char* image, int width, int height, glm::vec2 start, glm::vec2 end, glm::ivec3 color, int thickness)
+void BresenhamLine(unsigned char* buffer, int width, int height, glm::vec2 start, glm::vec2 end, glm::ivec3 color, int thickness)
 {
 	int x0 = (int)start.x;
 	int y0 = (int)start.y;
@@ -165,9 +165,9 @@ void BresenhamLine(unsigned char* image, int width, int height, glm::vec2 start,
 			if (px >= 0 && px < width && py >= 0 && py < height)
 			{
 				int index = 3 * (py * width + px);
-				image[index] = color.b;
-				image[index + 1] = color.g;
-				image[index + 2] = color.r;
+				buffer[index] = color.b;
+				buffer[index + 1] = color.g;
+				buffer[index + 2] = color.r;
 			}
 		}
 
@@ -209,7 +209,7 @@ void ArrowedLine(unsigned char* buffer, int width, int height, glm::vec2 start, 
 	BresenhamLine(buffer, width, height, tip2, end, color, thickness);
 }
 
-cudaError_t DrawVisualization(float* data, int* assignments, int numPoints, unsigned char* buffer, int width, int height, int axisMax, int margin, int pointSize)
+cudaError_t DrawVisualization(float* data, char* assignments, int numPoints, unsigned char* buffer, int width, int height, int axisMax, int margin, int pointSize)
 {
 	cudaError_t cudaStatus;
 
@@ -220,7 +220,7 @@ cudaError_t DrawVisualization(float* data, int* assignments, int numPoints, unsi
 	// Allocate device memory
 	thrust::device_vector<float> d_data(data, data + numPoints * 3);
 	thrust::device_vector<float> d_projectedData(numPoints * 3);
-	thrust::device_vector<int> d_assignments(assignments, assignments + numPoints);
+	thrust::device_vector<char> d_assignments(assignments, assignments + numPoints);
 
 	// Project points
 	IsometricProjectionKernel << <BLOCKS_PER_GRID(numPoints), THREADS_PER_BLOCK >> > (

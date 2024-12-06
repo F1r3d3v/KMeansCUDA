@@ -32,7 +32,7 @@ inline float DistanceSquared(float* points, int numPoints, int pointId, float* c
 
 template <unsigned int dim>
 __global__
-void AssignPointsToCentroidsKernel(float* points, int numPoints, int numClusters, float* centroids, int* assignments, int* changedPoints)
+void AssignPointsToCentroidsKernel(float* points, int numPoints, int numClusters, float* centroids, char* assignments, int* changedPoints)
 {
 	int pointId = blockIdx.x * blockDim.x + threadIdx.x;
 	int stride = gridDim.x * blockDim.x;
@@ -66,7 +66,7 @@ template <unsigned int dim>
 __global__ void PartialSumsKernel(
 	float* points,
 	int numPoints,
-	int* centroids,
+	char* assignments,
 	int numClusters,
 	float* partial_array,
 	int* partial_array_count,
@@ -79,7 +79,7 @@ __global__ void PartialSumsKernel(
 	{
 		unroll<dim>([&](std::size_t d) {
 			// Calculate the index of the point in the partial array
-			int arrayInd = d * numClusters * threads_count + centroids[i] * threads_count + pointId;
+			int arrayInd = d * numClusters * threads_count + assignments[i] * threads_count + pointId;
 			partial_array[arrayInd] += points[d * numPoints + i];
 			partial_array_count[arrayInd]++;
 			});
@@ -89,7 +89,7 @@ __global__ void PartialSumsKernel(
 /* ALGORITHMS */
 
 template <unsigned int dim>
-void KMeansCPU(float* data, int numPoints, int numClusters, int maxIterations, float* centroids, int* assignments)
+void KMeansCPU(float* data, int numPoints, int numClusters, int maxIterations, float* centroids, char* assignments)
 {
 	int changedPoints = 0;
 
@@ -169,7 +169,7 @@ void KMeansCPU(float* data, int numPoints, int numClusters, int maxIterations, f
 }
 
 template <unsigned int dim>
-cudaError_t KMeansGPU1(float* data, int numPoints, int numClusters, int maxIterations, float* centroids, int* assignments)
+cudaError_t KMeansGPU1(float* data, int numPoints, int numClusters, int maxIterations, float* centroids, char* assignments)
 {
 	cudaError_t cudaStatus;
 
@@ -188,8 +188,8 @@ cudaError_t KMeansGPU1(float* data, int numPoints, int numClusters, int maxItera
 	// Copy the data to the device
 	thrust::device_vector<float> d_data(data, data + numPoints * dim);
 	thrust::device_vector<float> d_centroids(centroids, centroids + numClusters * dim);
-	thrust::device_vector<int> d_assignments(assignments, assignments + numPoints);
-	thrust::device_vector<int> d_assignments_tmp(numPoints);
+	thrust::device_vector<char> d_assignments(assignments, assignments + numPoints);
+	thrust::device_vector<char> d_assignments_tmp(numPoints);
 	thrust::device_vector<int> d_centroidsCount(numClusters);
 	thrust::device_vector<int> d_deltas(numPoints);
 
@@ -274,7 +274,7 @@ cudaError_t KMeansGPU1(float* data, int numPoints, int numClusters, int maxItera
 }
 
 template <unsigned int dim>
-cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxIterations, float* centroids, int* assignments)
+cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxIterations, float* centroids, char* assignments)
 {
 	cudaError_t cudaStatus;
 
@@ -296,7 +296,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 	// Allocate device memory
 	auto d_data = allocateCudaMemory<float>(numPoints * dim);
 	auto d_centroids = allocateCudaMemory<float>(numClusters * dim);
-	auto d_assignments = allocateCudaMemory<int>(numPoints);
+	auto d_assignments = allocateCudaMemory<char>(numPoints);
 	auto d_changedPoints = allocateCudaMemory<int>(1);
 	auto d_partial_array = allocateCudaMemory<float>(dim * numClusters * SUMS_THREADS);
 	auto d_partial_array_count = allocateCudaMemory<int>(dim * numClusters * SUMS_THREADS);
@@ -317,7 +317,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 	cudaStatus = cudaMemcpy(d_centroids.get(), centroids, numClusters * dim * sizeof(float), cudaMemcpyHostToDevice);
 	CUDACHECK(cudaStatus);
 
-	cudaStatus = cudaMemcpy(d_assignments.get(), assignments, numPoints * sizeof(int), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(d_assignments.get(), assignments, numPoints * sizeof(char), cudaMemcpyHostToDevice);
 	CUDACHECK(cudaStatus);
 
 	// Allocate memory for partial sums on the host
@@ -435,7 +435,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 	}
 
 	// Copy the assignments back to the host
-	cudaStatus = cudaMemcpy(assignments, d_assignments.get(), numPoints * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(assignments, d_assignments.get(), numPoints * sizeof(char), cudaMemcpyDeviceToHost);
 	CUDACHECK(cudaStatus);
 
 	return cudaStatus;
@@ -443,7 +443,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 
 /* RUNNERS */
 
-void KMeansCPU_Runner(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, int* assignments)
+void KMeansCPU_Runner(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, char* assignments)
 {
 	switch (dimensions)
 	{
@@ -514,7 +514,7 @@ void KMeansCPU_Runner(float* data, int numPoints, int dimensions, int numCluster
 	}
 }
 
-cudaError_t KMeansGPU1_Runner(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, int* assignments)
+cudaError_t KMeansGPU1_Runner(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, char* assignments)
 {
 	cudaError_t cudaStatus;
 	switch (dimensions)
@@ -588,7 +588,7 @@ cudaError_t KMeansGPU1_Runner(float* data, int numPoints, int dimensions, int nu
 	return cudaStatus;
 }
 
-cudaError_t KMeansGPU2_Runner(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, int* assignments)
+cudaError_t KMeansGPU2_Runner(float* data, int numPoints, int dimensions, int numClusters, int maxIterations, float* centroids, char* assignments)
 {
 	cudaError_t cudaStatus;
 	switch (dimensions)

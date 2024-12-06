@@ -92,7 +92,7 @@ int loadFileBin(const char* filename, int* numPoints, int* dimensions, int* numC
 	return 1;
 }
 
-int writeFileTxt(const char* filename, float* centroids, int numClusters, int dimensions, int* assignments, int numPoints)
+int writeFileTxt(const char* filename, float* centroids, int numClusters, int dimensions, char* assignments, int numPoints)
 {
 	FILE* file = fopen(filename, "w");
 	if (!file)

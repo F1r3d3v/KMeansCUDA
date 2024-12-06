@@ -3,6 +3,6 @@
 
 #include "cuda_runtime.h"
 
-cudaError_t DrawVisualization(float* data, int* assignments, int numPoints, unsigned char* buffer, int width, int height, int axisMax, int margin, int pointSize);
+cudaError_t DrawVisualization(float* data, char* assignments, int numPoints, unsigned char* buffer, int width, int height, int axisMax, int margin, int pointSize);
 
 #endif // !RENDERER_H
