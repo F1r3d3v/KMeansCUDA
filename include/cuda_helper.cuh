@@ -3,6 +3,9 @@
 
 #include <memory>
 
+constexpr int THREADS_PER_BLOCK = 256;
+static constexpr int BLOCKS_PER_GRID(int x) { return (x + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK; }
+
 // Custom deleter for CUDA memory management
 template <typename T>
 struct CudaDeleter {

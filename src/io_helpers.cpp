@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <filesystem>
+#include <string>
 #include "io_helpers.h"
 
 int loadFileTxt(const char* filename, int* numPoints, int* dimensions, int* numClusters, float** data)
