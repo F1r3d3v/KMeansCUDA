@@ -6,6 +6,20 @@
 constexpr int THREADS_PER_BLOCK = 256;
 static constexpr int BLOCKS_PER_GRID(int x) { return (x + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK; }
 
+
+template<std::size_t N, class F, std::size_t START = 0>
+__device__ __host__
+inline void unroll(const F& f) {
+    if constexpr (N == 0)
+        return;
+    else
+    {
+        [[msvc::forceinline_calls]]
+        f(START);
+        unroll<N - 1, F, START + 1>(f);
+    }
+}
+
 // Custom deleter for CUDA memory management
 template <typename T>
 struct CudaDeleter {

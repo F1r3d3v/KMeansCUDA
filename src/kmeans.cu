@@ -22,12 +22,10 @@ inline float DistanceSquared(float* points, int numPoints, int pointId, float* c
 {
 	float distance = 0.0f;
 
-#pragma unroll
-	for (int d = 0; d < dim; ++d)
-	{
+	unroll<dim>([&](std::size_t d) {
 		float diff = points[d * numPoints + pointId] - centroids[d * numClusters + clusterId];
 		distance += diff * diff;
-	}
+		});
 
 	return distance;
 }
@@ -79,14 +77,12 @@ __global__ void PartialSumsKernel(
 
 	for (int i = pointId; i < numPoints; i += stride)
 	{
-#pragma unroll
-		for (int d = 0; d < dim; ++d)
-		{
+		unroll<dim>([&](std::size_t d) {
 			// Calculate the index of the point in the partial array
 			int arrayInd = d * numClusters * threads_count + centroids[i] * threads_count + pointId;
 			partial_array[arrayInd] += points[d * numPoints + i];
 			partial_array_count[arrayInd]++;
-		}
+			});
 	}
 }
 
@@ -100,9 +96,9 @@ void KMeansCPU(float* data, int numPoints, int numClusters, int maxIterations, f
 	// Set initial centroids to the first k points
 	for (int c = 0; c < numClusters; ++c)
 	{
-#pragma unroll
-		for (int d = 0; d < dim; ++d)
+		unroll<dim>([&](std::size_t d) {
 			centroids[d * numClusters + c] = data[d * numPoints + c];
+			});
 	}
 
 	for (int iter = 0; iter < maxIterations; ++iter)
@@ -153,22 +149,18 @@ void KMeansCPU(float* data, int numPoints, int numClusters, int maxIterations, f
 			int cluster = assignments[i];
 			pointsPerCluster[cluster]++;
 
-#pragma unroll
-			for (int d = 0; d < dim; ++d)
-			{
+			unroll<dim>([&](std::size_t d) {
 				centroidSums[d * numClusters + cluster] += data[d * numPoints + i];
-			}
+				});
 		}
 
 		for (int c = 0; c < numClusters; ++c)
 		{
 			if (pointsPerCluster[c] == 0) continue;
 
-#pragma unroll
-			for (int d = 0; d < dim; ++d)
-			{
+			unroll<dim>([&](std::size_t d) {
 				centroids[d * numClusters + c] = centroidSums[d * numClusters + c] / pointsPerCluster[c];
-			}
+				});
 		}
 
 		free(centroidSums);
@@ -184,9 +176,9 @@ cudaError_t KMeansGPU1(float* data, int numPoints, int numClusters, int maxItera
 	// Set initial centroids to the first k points
 	for (int c = 0; c < numClusters; ++c)
 	{
-#pragma unroll
-		for (int d = 0; d < dim; ++d)
+		unroll<dim>([&](std::size_t d) {
 			centroids[d * numClusters + c] = data[d * numPoints + c];
+			});
 	}
 
 	// Set cuda device
@@ -256,9 +248,7 @@ cudaError_t KMeansGPU1(float* data, int numPoints, int numClusters, int maxItera
 			d_centroidsCount.begin());
 
 		// Compute the new centroids
-#pragma unroll
-		for (int d = 0; d < dim; ++d)
-		{
+		unroll<dim>([&](std::size_t d) {
 			thrust::copy(d_assignments.begin(), d_assignments.end(), d_assignments_tmp.begin());
 			thrust::sort_by_key(d_assignments_tmp.begin(), d_assignments_tmp.end(), d_data.begin() + d * numPoints);
 
@@ -269,7 +259,7 @@ cudaError_t KMeansGPU1(float* data, int numPoints, int numClusters, int maxItera
 
 			thrust::transform(d_centroids.begin() + d * numClusters, d_centroids.begin() + (d + 1) * numClusters,
 				d_centroidsCount.begin(), d_centroids.begin() + d * numClusters, thrust::divides<float>());
-		}
+			});
 	}
 
 	// Reorder the assignments
@@ -294,9 +284,9 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 	// Set initial centroids to the first k points
 	for (int c = 0; c < numClusters; ++c)
 	{
-#pragma unroll
-		for (int d = 0; d < dim; ++d)
+		unroll<dim>([&](std::size_t d) {
 			centroids[d * numClusters + c] = data[d * numPoints + c];
+			});
 	}
 
 	// Set cuda device
@@ -392,9 +382,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 		CUDACHECK(cudaStatus);
 
 		// Calculate the new centroids
-#pragma unroll
-		for (int d = 0; d < dim; ++d)
-		{
+		unroll<dim>([&](std::size_t d) {
 			for (int c = 0; c < numClusters; ++c)
 			{
 				ReduceKernel<THREADS_PER_BLOCK, float> << <blocks, THREADS_PER_BLOCK >> > (
@@ -407,7 +395,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 					d_centroidsCounts.get() + d * numClusters * blocks + c * blocks,
 					SUMS_THREADS);
 			}
-		}
+			});
 
 		// Wait for the kernels to finish
 		cudaStatus = cudaDeviceSynchronize();
@@ -425,9 +413,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 		CUDACHECK(cudaStatus);
 
 		// Calculate the new centroids on the host
-#pragma unroll
-		for (int d = 0; d < dim; ++d)
-		{
+		unroll<dim>([&](std::size_t d) {
 			for (int c = 0; c < numClusters; ++c)
 			{
 				float sum = 0.0f;
@@ -441,7 +427,7 @@ cudaError_t KMeansGPU2(float* data, int numPoints, int numClusters, int maxItera
 
 				centroids[d * numClusters + c] = sum / count;
 			}
-		}
+			});
 
 		// Copy the new centroids to the device
 		cudaStatus = cudaMemcpy(d_centroids.get(), centroids, numClusters * dim * sizeof(float), cudaMemcpyHostToDevice);
